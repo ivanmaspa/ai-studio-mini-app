@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Gemini Studio AI — Mini App</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tgBg: 'var(--tg-theme-bg-color, #09090b)',
+            tgText: 'var(--tg-theme-text-color, #f4f4f5)',
+            tgSecondary: 'var(--tg-theme-secondary-bg-color, #18181b)',
+            tgButton: 'var(--tg-theme-button-color, #0284c7)',
+            tgButtonText: 'var(--tg-theme-button-text-color, #ffffff)'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      background-color: var(--tg-theme-bg-color, #09090b);
+      color: var(--tg-theme-text-color, #f4f4f5);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: pan-y;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none">
+
+  <!-- TOP HEADER -->
+  <header class="h-14 border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-md px-4 flex items-center justify-between z-20 flex-shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <i data-lucide="bot" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-sm font-bold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">MASai Studio</h1>
+        <div class="flex items-center space-x-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="activeModelBadge" class="text-[10px] text-zinc-400 font-mono">gemini-2.5-flash</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tab Switches -->
+    <div class="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-1 space-x-1">
+      <button onclick="switchTab('chat')" id="tabBtnChat" class="px-3 py-1 rounded-lg text-xs font-medium transition-all bg-sky-500 text-white shadow-sm flex items-center space-x-1">
+        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+        <span>Чат</span>
+      </button>
+      <button onclick="switchTab('settings')" id="tabBtnSettings" class="px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all flex items-center space-x-1">
+        <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+        <span>Шлюз</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- TAB 1: CHAT VIEW -->
+  <main id="viewChat" class="flex-1 flex flex-col overflow-hidden relative">
+    <!-- Messages Scroll Area -->
+    <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar pb-24">
+      
+      <!-- Welcome Message -->
+      <div class="flex items-start space-x-3">
+        <div class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800/80 rounded-2xl rounded-tl-sm p-3.5 max-w-[85%] shadow-sm">
+          <p class="text-xs leading-relaxed text-zinc-200">
+            👋 <b>Добро пожаловать в Telegram Mini App управления ИИ!</b>
+          </p>
+          <p class="text-[11px] text-zinc-400 mt-2 leading-relaxed">
+            Здесь вы можете общаться с Gemini напрямую, либо настроить автономного бота <b>@masiksssgegai_bot</b> во вкладке <b>«Шлюз»</b>.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Chat Input Area -->
+    <div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-zinc-950 via-zinc-950/95 to-transparent backdrop-blur-sm border-t border-zinc-900">
+      <div class="flex items-end space-x-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-1.5 shadow-xl focus-within:border-sky-500/50 transition-all">
+        <textarea id="chatInput" rows="1" placeholder="Задайте вопрос Gemini..." class="flex-1 bg-transparent border-0 px-3 py-2 text-xs text-white placeholder-zinc-500 resize-none outline-none max-h-24 custom-scrollbar"></textarea>
+        <button onclick="handleSendMessage()" id="btnSend" class="w-9 h-9 rounded-xl bg-sky-500 hover:bg-sky-400 active:scale-95 text-white flex items-center justify-center flex-shrink-0 transition-all shadow-md shadow-sky-500/20">
+          <i data-lucide="arrow-up" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 2: SETTINGS & GATEWAY VIEW -->
+  <main id="viewSettings" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar hidden pb-20">
+    
+    <!-- User Info Card -->
+    <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+          <i data-lucide="user-check" class="w-4 h-4 text-sky-400"></i>
+          Владелец шлюза
+        </span>
+        <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium">Авторизован</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-sky-400 text-sm">
+          M
+        </div>
+        <div>
+          <div class="text-xs font-semibold text-white">Mssik (@Bigbigmas)</div>
+          <div class="text-[10px] text-zinc-400 font-mono">ID: 8871602493 • @masiksssgegai_bot</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode Toggles Card -->
+    <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3.5">
+      <h3 class="text-xs font-semibold text-zinc-300 flex items-center gap-1.5 mb-2">
+        <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
+        Автоматизация и Режимы
+      </h3>
+
+      <!-- Toggle: Secretary Mode -->
+      <div class="flex items-center justify-between py-1">
+        <div>
+          <div class="text-xs font-medium text-zinc-200">Режим Секретаря (Business)</div>
+          <div class="text-[10px] text-zinc-400">Отвечает клиентам в Telegram Business при AFK</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="cfgSecretary" checked class="sr-only peer" onchange="haptic()">
+          <div class="w-10 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+        </label>
+      </div>
+
+      <!-- Toggle: Groups Mode -->
+      <div class="flex items-center justify-between py-1 border-t border-zinc-800/60 pt-3">
+        <div>
+          <div class="text-xs font-medium text-zinc-200">Ответы в группах</div>
+          <div class="text-[10px] text-zinc-400">Анализ до 40 последних сообщений при теге бота</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="cfgGroups" checked class="sr-only peer" onchange="haptic()">
+          <div class="w-10 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+        </label>
+      </div>
+
+      <!-- AFK Timeout Selector -->
+      <div class="border-t border-zinc-800/60 pt-3">
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="text-xs font-medium text-zinc-200">⏱ Задержка неактивности (AFK)</label>
+          <span id="afkValLabel" class="text-xs font-mono text-sky-400 font-bold">5 минут</span>
+        </div>
+        <select id="cfgAfk" onchange="updateAfkLabel()" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 outline-none focus:border-sky-500">
+          <option value="0">Всегда отвечать сразу (0 мин)</option>
+          <option value="1">1 минута неактивности</option>
+          <option value="3">3 минуты неактивности</option>
+          <option value="5" selected>5 минут (Рекомендуется)</option>
+          <option value="10">10 минут неактивности</option>
+          <option value="15">15 минут неактивности</option>
+          <option value="30">30 минут неактивности</option>
+        </select>
+        <p class="text-[10px] text-zinc-500 mt-1">Бот не будет перебивать вас в чатах, пока вы активны.</p>
+      </div>
+    </div>
+
+    <!-- AI Model & Key Card -->
+    <div class="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3.5">
+      <h3 class="text-xs font-semibold text-zinc-300 flex items-center gap-1.5 mb-2">
+        <i data-lucide="key" class="w-4 h-4 text-amber-400"></i>
+        Модель и Google AI Studio API
+      </h3>
+
+      <div>
+        <label class="block text-xs font-medium text-zinc-400 mb-1">Выбор модели ИИ</label>
+        <select id="cfgModel" onchange="haptic()" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 outline-none focus:border-sky-500 font-mono">
+          <option value="gemini-2.5-flash" selected>gemini-2.5-flash (Быстрая и стабильная)</option>
+          <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+          <option value="gemini-3.8-flash">gemini-3.8-flash (Экспериментальная)</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-zinc-400 mb-1">Gemini API Key</label>
+        <input type="password" id="cfgApiKey" placeholder="Вставьте ваш Gemini API Key" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-200 outline-none focus:border-sky-500 font-mono">
+        <div class="flex items-center justify-between mt-1">
+          <span class="text-[10px] text-emerald-400 flex items-center gap-1">
+            <i data-lucide="check-circle" class="w-3 h-3"></i> Ключ верифицирован
+          </span>
+          <button onclick="testKeyConnection()" class="text-[10px] text-sky-400 hover:underline">Проверить ping</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save Button -->
+    <button onclick="saveAllSettings()" class="w-full py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 active:scale-[0.98] text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center space-x-2">
+      <i data-lucide="save" class="w-4 h-4"></i>
+      <span>Сохранить параметры</span>
+    </button>
+    
+    <div class="text-center pb-4">
+      <span class="text-[10px] text-zinc-600">MASai Gateway v3.0 • Telegram Mini App</span>
+    </div>
+
+  </main>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 px-4 py-2 bg-zinc-800/95 border border-zinc-700/80 text-white text-xs rounded-xl shadow-2xl backdrop-blur-md opacity-0 pointer-events-none transition-all z-50 flex items-center space-x-2">
+    <i data-lucide="info" id="toastIcon" class="w-4 h-4 text-sky-400"></i>
+    <span id="toastMsg">Уведомление</span>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { tg.setHeaderColor('#09090b'); } catch(e){}
+    }
+
+    lucide.createIcons();
+
+    function haptic() {
+      try { tg?.HapticFeedback?.impactOccurred('light'); } catch(e){}
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+      
+      toastMsg.innerText = msg;
+      toastIcon.setAttribute('data-lucide', isError ? 'alert-triangle' : 'check-circle');
+      toastIcon.className = isError ? 'w-4 h-4 text-rose-400' : 'w-4 h-4 text-emerald-400';
+      lucide.createIcons();
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    function switchTab(tab) {
+      haptic();
+      const viewChat = document.getElementById('viewChat');
+      const viewSettings = document.getElementById('viewSettings');
+      const btnChat = document.getElementById('tabBtnChat');
+      const btnSettings = document.getElementById('tabBtnSettings');
+
+      if (tab === 'chat') {
+        viewChat.classList.remove('hidden');
+        viewSettings.classList.add('hidden');
+        btnChat.className = "px-3 py-1 rounded-lg text-xs font-medium transition-all bg-sky-500 text-white shadow-sm flex items-center space-x-1";
+        btnSettings.className = "px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all flex items-center space-x-1";
+      } else {
+        viewChat.classList.add('hidden');
+        viewSettings.classList.remove('hidden');
+        btnSettings.className = "px-3 py-1 rounded-lg text-xs font-medium transition-all bg-sky-500 text-white shadow-sm flex items-center space-x-1";
+        btnChat.className = "px-3 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-white transition-all flex items-center space-x-1";
+      }
+    }
+
+    function updateAfkLabel() {
+      const val = document.getElementById('cfgAfk').value;
+      document.getElementById('afkValLabel').innerText = val === "0" ? "Всегда (0м)" : `${val} минут`;
+      haptic();
+    }
+
+    async function testKeyConnection() {
+      haptic();
+      const key = document.getElementById('cfgApiKey').value.trim();
+      const model = document.getElementById('cfgModel').value;
+      if (!key) return showToast('Введите API-ключ', true);
+
+      showToast('Тестирование подключения...');
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: 'OK' }] }] })
+        });
+        if (res.ok) {
+          showToast('Подключение успешно! 200 OK');
+        } else {
+          showToast(`Ошибка API: ${res.status}`, true);
+        }
+      } catch (e) {
+        showToast('Сетевой сбой при тесте', true);
+      }
+    }
+
+    function saveAllSettings() {
+      haptic();
+      const model = document.getElementById('cfgModel').value;
+      const key = document.getElementById('cfgApiKey').value.trim();
+      const secretary = document.getElementById('cfgSecretary').checked;
+      const groups = document.getElementById('cfgGroups').checked;
+      const afk = document.getElementById('cfgAfk').value;
+
+      localStorage.setItem('GEMINI_MODEL', model);
+      localStorage.setItem('GEMINI_API_KEY', key);
+      localStorage.setItem('SECRETARY_ENABLED', secretary);
+      localStorage.setItem('GROUPS_ENABLED', groups);
+      localStorage.setItem('AFK_TIMEOUT', afk);
+
+      document.getElementById('activeModelBadge').innerText = model;
+      showToast('Параметры сохранены!');
+    }
+
+    async function handleSendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      haptic();
+
+      input.value = '';
+      input.style.height = 'auto';
+
+      appendMessage('user', text);
+      const typingId = appendTypingIndicator();
+
+      const key = localStorage.getItem('GEMINI_API_KEY') || document.getElementById('cfgApiKey').value.trim();
+      const model = localStorage.getItem('GEMINI_MODEL') || document.getElementById('cfgModel').value;
+
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text }] }] })
+        });
+
+        removeTypingIndicator(typingId);
+
+        if (!response.ok) {
+          const errData = await response.json();
+          appendMessage('model', `⚠️ Ошибка (${response.status}): ${errData?.error?.message || 'Сбой запроса'}`);
+          return;
+        }
+
+        const data = await response.json();
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Пустой ответ.";
+        appendMessage('model', reply);
+
+      } catch (err) {
+        removeTypingIndicator(typingId);
+        appendMessage('model', `⚠️ Ошибка сети: ${err.message}`);
+      }
+    }
+
+    function appendMessage(sender, text) {
+      const c = document.getElementById('messagesContainer');
+      const div = document.createElement('div');
+      div.className = sender === 'user' ? 'flex justify-end' : 'flex items-start space-x-3';
+
+      if (sender === 'user') {
+        div.innerHTML = `
+          <div class="bg-sky-500 text-white rounded-2xl rounded-tr-sm p-3 max-w-[85%] text-xs shadow-md">
+            ${escapeHtml(text)}
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <div class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i data-lucide="bot" class="w-3.5 h-3.5 text-indigo-400"></i>
+          </div>
+          <div class="bg-zinc-900 border border-zinc-800/80 rounded-2xl rounded-tl-sm p-3 max-w-[85%] shadow-sm text-xs text-zinc-200 leading-relaxed">
+            ${text.replace(/\n/g, '<br>')}
+          </div>
+        `;
+      }
+      c.appendChild(div);
+      lucide.createIcons();
+      c.scrollTop = c.scrollHeight;
+    }
+
+    function appendTypingIndicator() {
+      const c = document.getElementById('messagesContainer');
+      const id = 'typing_' + Date.now();
+      const div = document.createElement('div');
+      div.id = id;
+      div.className = 'flex items-start space-x-3';
+      div.innerHTML = `
+        <div class="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <i data-lucide="bot" class="w-3.5 h-3.5 text-indigo-400"></i>
+        </div>
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex space-x-1.5 items-center">
+          <span class="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></span>
+          <span class="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+          <span class="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+        </div>
+      `;
+      c.appendChild(div);
+      c.scrollTop = c.scrollHeight;
+      return id;
+    }
+
+    function removeTypingIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Auto resize textarea
+    const ta = document.getElementById('chatInput');
+    ta.addEventListener('input', () => {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 96) + 'px';
+    });
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+      }
+    });
+  </script>
+</body>
+</html>
